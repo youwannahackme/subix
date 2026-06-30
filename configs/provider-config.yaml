@@ -1,0 +1,87 @@
+# Subix Provider Configuration
+# Copy to ~/.config/subix/provider-config.yaml and add your API keys
+
+# Source enable/disable configuration
+sources:
+  certtransparency:
+    crtsh: true          # Free, no key needed
+    censys: false        # Requires API key
+    certspotter: true    # Free tier available
+  services:
+    dnsdumpster: true    # Free, no key needed
+    hackertarget: true   # Free, no key needed
+    urlscan: true        # Free, no key needed
+    alienvault: true     # Free, no key needed
+    anubis: true         # Free, no key needed
+    subdomaincenter: true # Free, no key needed
+    threatcrowd: true    # Free, no key needed
+    columbus: true       # Free, no key needed
+    jldc: true           # Free, no key needed
+    sonar: true          # Free, no key needed
+    robtex: true         # Free, no key needed
+    rapiddns: true       # Free, no key needed
+    synapsint: true      # Free, no key needed
+    riddler: true        # Free, no key needed
+  webarchive:
+    wayback: true        # Free, no key needed
+    commoncrawl: true    # Free, no key needed
+  searchengine:
+    bing: true           # Free, may get rate limited
+    duckduckgo: true     # Free, no key needed
+    google: true         # Free, no key needed
+    yahoo: true          # Free, no key needed
+    baidu: true          # Free, no key needed
+    yandex: true         # Free, no key needed
+    ask: true            # Free, no key needed
+  api:
+    securitytrails: false  # Requires API key
+    virustotal: true       # Requires API key
+    shodan: true           # Requires API key
+    passivetotal: false    # Requires API key + username
+    chaos: false           # Requires API key
+    bevigil: false         # Requires API key
+    zoomeye: true          # Requires API key
+    fofa: true             # Requires API key
+    hunter: false          # Requires API key
+    intelx: false          # Requires API key
+    leakix: false          # Requires API key
+    netlas: true           # Requires API key
+    binaryedge: false      # Requires API key
+    threatbook: false      # Requires API key
+    quake: false           # Requires API key
+    c99: false             # Requires API key
+
+# API Keys — add yours below
+apikeys:
+  securitytrails: ""
+  virustotal: ""
+  shodan: ""
+  passivetotal: ""
+  passivetotal_user: ""    # Separate username for PassiveTotal
+  chaos: ""
+  bevigil: ""
+  zoomeye: ""
+  fofa: ""
+  hunter: ""
+  intelx: ""
+  leakix: ""
+  netlas: ""
+  binaryedge: ""
+  threatbook: ""
+  quake: ""
+  c99: ""
+  alienvault: ""
+
+# Censys uses a different auth format
+censys:
+  id: ""
+  secret: ""
+
+# Tips:
+# - SecurityTrails: https://securitytrails.com/ (free tier available)
+# - VirusTotal: https://www.virustotal.com/ (free API key)
+# - Shodan: https://www.shodan.io/ (free tier available)
+# - PassiveTotal: https://www.passivetotal.org/ (free with registration)
+# - Censys: https://search.censys.io/ (free account available)
+#
+# Use -all-sources flag to enable ALL sources including API ones
