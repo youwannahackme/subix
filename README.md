@@ -5,7 +5,7 @@
 [![Go Version](https://img.shields.io/github/go-mod/go-version/youwannahackme/subix)](https://github.com/youwannahackme/subix)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/youwannahackme/subix/pulls)
 
-**Subix** is a god-level, blazing-fast, hybrid subdomain enumeration engine written in Go. It combines the power of **42 passive OSINT sources** with advanced active capabilities—multi-threaded DNS resolution, smart wildcard filtering, recursive enumeration, and a permutation engine—into a single high-performance tool.
+**Subix** is a god-level, blazing-fast, hybrid subdomain enumeration engine written in Go. It combines the power of **49 passive OSINT sources** with advanced active capabilities—multi-threaded DNS resolution, smart wildcard filtering, recursive enumeration, and a permutation engine—into a single high-performance tool.
 
 Unlike other tools that require complex chaining of multiple CLI utilities, Subix handles the entire passive-to-active discovery pipeline in one unified run.
 
@@ -18,7 +18,7 @@ Subix operates using a structured pipeline that ensures maximum coverage while m
 ```mermaid
 graph TD
     A[Target Domain] --> B(Passive OSINT Phase)
-    B -->|42 Sources| C[Raw Subdomain Pool]
+    B -->|49 Sources| C[Raw Subdomain Pool]
     C --> D(Wildcard Detection Phase)
     D -->|Filter Wildcards| E[Sanitized Subdomain Pool]
     E --> F(Active Resolution Phase)
@@ -37,7 +37,7 @@ graph TD
 
 ## 🌟 Key Features
 
-### 1. 42 Passive OSINT Sources
+### 1. 49 Passive OSINT Sources
 Scrapes and queries certificate transparency logs, web archives, search engines, and threat intelligence APIs. It includes built-in rate-limiting and connection retry logic with exponential backoff.
 
 ### 2. Built-in Active Resolver
@@ -68,7 +68,7 @@ Ensure your Go bin directory (usually `$HOME/go/bin` or `%USERPROFILE%\go\bin`) 
 
 ## ⚙️ Configuration
 
-Subix works out of the box using free, keyless sources. To unlock the full potential of all 42 sources, configure your API keys in the provider configuration file.
+Subix works out of the box using free, keyless sources. To unlock the full potential of all 49 sources, configure your API keys in the provider configuration file.
 
 1. Create a config file at `~/.config/subix/provider-config.yaml`.
 2. Add your API keys. You can use the template located in [configs/provider-config.yaml](configs/provider-config.yaml):
@@ -131,15 +131,15 @@ subix -l domains.txt -threads 50 -o active_subs.csv -c
 
 ---
 
-## 🔱 Available Sources (42)
+## 🔱 Available Sources (49)
 
 | Category | Sources |
 | :--- | :--- |
-| **Certificate Transparency** | `crtsh`, `censys` (API), `certspotter` |
-| **DNS & Services** | `dnsdumpster`, `hackertarget`, `urlscan`, `alienvault`, `anubis`, `subdomaincenter`, `threatcrowd`, `columbus`, `jldc`, `sonar`, `robtex`, `rapiddns`, `synapsint`, `riddler` |
+| **Certificate Transparency** | `crtsh`, `censys` (API), `certspotter`, `google` |
+| **DNS & Services** | `dnsdumpster`, `hackertarget`, `urlscan`, `alienvault`, `anubis`, `subdomaincenter`, `threatcrowd`, `columbus`, `jldc`, `sonar`, `robtex`, `rapiddns`, `synapsint`, `riddler`, `sublist3r`, `threatminer`, `myssl`, `dnsgrep` |
 | **Web Archives** | `wayback`, `commoncrawl` |
 | **Search Engines** | `bing`, `duckduckgo`, `google`, `yahoo`, `baidu`, `yandex`, `ask` |
-| **Premium APIs (Keys)** | `securitytrails`, `virustotal`, `shodan`, `passivetotal`, `chaos`, `bevigil`, `zoomeye`, `fofa`, `hunter`, `intelx`, `leakix`, `netlas`, `binaryedge`, `threatbook`, `quake`, `c99` |
+| **Premium APIs (Keys)** | `securitytrails`, `virustotal`, `shodan`, `passivetotal`, `chaos`, `bevigil`, `zoomeye`, `fofa`, `hunter`, `intelx`, `leakix`, `netlas`, `binaryedge`, `threatbook`, `quake`, `c99`, `fullhunt`, `racent` |
 
 To list all available sources in your terminal:
 ```bash

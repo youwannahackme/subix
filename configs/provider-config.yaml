@@ -1,5 +1,5 @@
-# Subix Provider Configuration
-# Copy to ~/.config/subix/provider-config.yaml and add your API keys
+# SubGod Provider Configuration
+# Copy to ~/.config/subgod/provider-config.yaml and add your API keys
 
 # Source enable/disable configuration
 sources:
@@ -7,6 +7,7 @@ sources:
     crtsh: true          # Free, no key needed
     censys: false        # Requires API key
     certspotter: true    # Free tier available
+    google: true         # Free, no key needed
   services:
     dnsdumpster: true    # Free, no key needed
     hackertarget: true   # Free, no key needed
@@ -22,6 +23,10 @@ sources:
     rapiddns: true       # Free, no key needed
     synapsint: true      # Free, no key needed
     riddler: true        # Free, no key needed
+    sublist3r: true      # Free, no key needed
+    threatminer: true    # Free, no key needed
+    myssl: true          # Free, no key needed
+    dnsgrep: true        # Free, no key needed
   webarchive:
     wayback: true        # Free, no key needed
     commoncrawl: true    # Free, no key needed
@@ -50,27 +55,31 @@ sources:
     threatbook: false      # Requires API key
     quake: false           # Requires API key
     c99: false             # Requires API key
+    fullhunt: false        # Requires API key
+    racent: false          # Requires API key
 
 # API Keys — add yours below
 apikeys:
   securitytrails: ""
-  virustotal: ""
-  shodan: ""
+  virustotal: "d3ac504ca6a821eab83305a1f02662cb1db99c15da61c28e7bba285007f2060b"
+  shodan: "MDV8vUkVhhKRhu90RtcDmwxwAONhR3S0"
   passivetotal: ""
   passivetotal_user: ""    # Separate username for PassiveTotal
   chaos: ""
   bevigil: ""
-  zoomeye: ""
-  fofa: ""
+  zoomeye: "1566F3Dd-288F-9851c-12b3-9db4917ed04"
+  fofa: "f6ed290bce892be0bf12883a62877cf7"
   hunter: ""
   intelx: ""
   leakix: ""
-  netlas: ""
+  netlas: "kd9DQU0vbG40Rj7nSgQAvu4gaEBh6ulU"
   binaryedge: ""
   threatbook: ""
   quake: ""
   c99: ""
-  alienvault: ""
+  alienvault: "2b1ceb10dd013502de2f5f597b1eaa95c98e10217c6d053a0dda333bb7b8a635"
+  fullhunt: ""
+  racent: ""
 
 # Censys uses a different auth format
 censys:

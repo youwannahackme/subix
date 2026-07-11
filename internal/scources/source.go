@@ -47,6 +47,7 @@ func AllSources() []Source {
 		&certtransparency.Crtsh{},
 		&certtransparency.Censys{},
 		&certtransparency.Certspotter{},
+		&certtransparency.Google{},
 		// Services
 		&services.DNSDumpster{},
 		&services.HackerTarget{},
@@ -62,6 +63,10 @@ func AllSources() []Source {
 		&services.RapidDNS{},
 		&services.Synapsint{},
 		&services.Riddler{},
+		&services.Sublist3r{},
+		&services.ThreatMiner{},
+		&services.MySSL{},
+		&services.DNSGrep{},
 		// Web Archives
 		&webarchive.Wayback{},
 		&webarchive.CommonCrawl{},
@@ -90,5 +95,7 @@ func AllSources() []Source {
 		&api.ThreatBook{},
 		&api.Quake{},
 		&api.C99{},
+		&api.FullHunt{},
+		&api.Racent{},
 	}
 }

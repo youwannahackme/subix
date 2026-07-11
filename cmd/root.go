@@ -215,11 +215,11 @@ func readLines(path string) ([]string, error) {
 
 func printAvailableSources() {
 	categories := map[string][]string{
-		"Certificate Transparency": {"crtsh", "censys", "certspotter"},
-		"DNS / Services":           {"dnsdumpster", "hackertarget", "urlscan", "alienvault", "anubis", "subdomaincenter", "threatcrowd", "columbus", "jldc", "sonar", "robtex", "rapiddns", "synapsint", "riddler"},
+		"Certificate Transparency": {"crtsh", "censys", "certspotter", "google"},
+		"DNS / Services":           {"dnsdumpster", "hackertarget", "urlscan", "alienvault", "anubis", "subdomaincenter", "threatcrowd", "columbus", "jldc", "sonar", "robtex", "rapiddns", "synapsint", "riddler", "sublist3r", "threatminer", "myssl", "dnsgrep"},
 		"Web Archives":             {"wayback", "commoncrawl"},
 		"Search Engines":           {"bing", "duckduckgo", "google", "yahoo", "baidu", "yandex", "ask"},
-		"API (requires keys)":      {"securitytrails", "virustotal", "shodan", "passivetotal", "chaos", "bevigil", "zoomeye", "fofa", "hunter", "intelx", "leakix", "netlas", "binaryedge", "threatbook", "quake", "c99"},
+		"API (requires keys)":      {"securitytrails", "virustotal", "shodan", "passivetotal", "chaos", "bevigil", "zoomeye", "fofa", "hunter", "intelx", "leakix", "netlas", "binaryedge", "threatbook", "quake", "c99", "fullhunt", "racent"},
 	}
 	colors := []string{"\033[36m", "\033[33m", "\033[35m", "\033[32m", "\033[31m"}
 	i := 0
@@ -299,6 +299,6 @@ func customHelp(cmd *cobra.Command, args []string) {
 
 	fmt.Println("\033[1mSYSTEM:\033[0m")
 	fmt.Println("  -h, --help                   Show this help menu")
-	fmt.Println("      --list-sources           List all 42 available sources and exit")
+	fmt.Println("      --list-sources           List all 49 available sources and exit")
 	fmt.Println()
 }

@@ -16,6 +16,7 @@ func DefaultProviderConfig() *types.ProviderConfig {
 				"crtsh":       true,
 				"censys":      false,
 				"certspotter": true,
+				"google":      true,
 			},
 			"services": {
 				"dnsdumpster":     true,
@@ -32,6 +33,10 @@ func DefaultProviderConfig() *types.ProviderConfig {
 				"rapiddns":        true,
 				"synapsint":       true,
 				"riddler":         true,
+				"sublist3r":       true,
+				"threatminer":     true,
+				"myssl":           true,
+				"dnsgrep":         true,
 			},
 			"webarchive": {
 				"wayback":     true,
@@ -63,6 +68,8 @@ func DefaultProviderConfig() *types.ProviderConfig {
 				"threatbook":     false,
 				"quake":          false,
 				"c99":            false,
+				"fullhunt":       false,
+				"racent":         false,
 			},
 		},
 		APIKeys: map[string]string{
@@ -82,6 +89,8 @@ func DefaultProviderConfig() *types.ProviderConfig {
 			"threatbook":     "",
 			"quake":          "",
 			"c99":            "",
+			"fullhunt":       "",
+			"racent":         "",
 		},
 		Censys: types.CensysConfig{
 			ID:     "",
