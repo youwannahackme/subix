@@ -27,6 +27,12 @@ sources:
     threatminer: true    # Free, no key needed
     myssl: true          # Free, no key needed
     dnsgrep: true        # Free, no key needed
+    cebaidu: true        # Free, no key needed
+    chinaz: true         # Free, no key needed
+    ip138: true          # Free, no key needed
+    netcraft: true       # Free, no key needed
+    qianxun: true        # Free, no key needed
+    sitedossier: true    # Free, no key needed
   webarchive:
     wayback: true        # Free, no key needed
     commoncrawl: true    # Free, no key needed
@@ -38,6 +44,10 @@ sources:
     baidu: true          # Free, no key needed
     yandex: true         # Free, no key needed
     ask: true            # Free, no key needed
+    gitee: true          # Free, no key needed
+    so: true             # Free, no key needed
+    sogou: true          # Free, no key needed
+    wzsearch: true       # Free, no key needed
   api:
     securitytrails: false  # Requires API key
     virustotal: true       # Requires API key
@@ -57,6 +67,15 @@ sources:
     c99: false             # Requires API key
     fullhunt: false        # Requires API key
     racent: false          # Requires API key
+    chinaz_api: false      # Requires API key
+    circl: false           # Requires API key + username
+    cloudflare: false      # Requires API token
+    dnsdb: false           # Requires API key
+    github: false          # Requires API token
+    ipv4info: false        # Requires API key
+    passivedns: false      # Requires API key
+    spyse: false           # Requires API token
+    windvane: false        # Optional/Requires API key
 
 # API Keys — add yours below
 apikeys:
@@ -80,6 +99,17 @@ apikeys:
   alienvault: "2b1ceb10dd013502de2f5f597b1eaa95c98e10217c6d053a0dda333bb7b8a635"
   fullhunt: ""
   racent: ""
+  chinaz_api: ""
+  circl: ""              # Or use circl_user and circl_pass below
+  circl_user: ""
+  circl_pass: ""
+  cloudflare: ""
+  dnsdb: ""
+  github: ""
+  ipv4info: ""
+  passivedns: ""
+  spyse: ""
+  windvane: ""
 
 # Censys uses a different auth format
 censys:

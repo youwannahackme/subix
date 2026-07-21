@@ -59,6 +59,13 @@ func (s *Session) DoWithRetry(req *http.Request) (*http.Response, error) {
 	var err error
 
 	for i := 0; i < 3; i++ {
+		if i > 0 && req.GetBody != nil {
+			newBody, errBody := req.GetBody()
+			if errBody == nil {
+				req.Body = newBody
+			}
+		}
+
 		resp, err = s.Client.Do(req)
 		if err == nil {
 			// Check status codes that warrant a retry

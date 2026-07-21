@@ -53,7 +53,7 @@ var rootCmd = &cobra.Command{
 
   🔱 SUBIX: High-Impact Subdomain Enumeration Engine
 
-Subix combines 16+ passive OSINT sources, recursive enumeration,
+Subix combines 68+ passive OSINT sources, recursive enumeration,
 permutation engine, wildcard detection, and DNS resolution into
 a single blazing-fast tool.
 
@@ -216,10 +216,10 @@ func readLines(path string) ([]string, error) {
 func printAvailableSources() {
 	categories := map[string][]string{
 		"Certificate Transparency": {"crtsh", "censys", "certspotter", "google"},
-		"DNS / Services":           {"dnsdumpster", "hackertarget", "urlscan", "alienvault", "anubis", "subdomaincenter", "threatcrowd", "columbus", "jldc", "sonar", "robtex", "rapiddns", "synapsint", "riddler", "sublist3r", "threatminer", "myssl", "dnsgrep"},
+		"DNS / Services":           {"dnsdumpster", "hackertarget", "urlscan", "alienvault", "anubis", "subdomaincenter", "threatcrowd", "columbus", "jldc", "sonar", "robtex", "rapiddns", "synapsint", "riddler", "sublist3r", "threatminer", "myssl", "dnsgrep", "cebaidu", "chinaz", "ip138", "netcraft", "qianxun", "sitedossier"},
 		"Web Archives":             {"wayback", "commoncrawl"},
-		"Search Engines":           {"bing", "duckduckgo", "google", "yahoo", "baidu", "yandex", "ask"},
-		"API (requires keys)":      {"securitytrails", "virustotal", "shodan", "passivetotal", "chaos", "bevigil", "zoomeye", "fofa", "hunter", "intelx", "leakix", "netlas", "binaryedge", "threatbook", "quake", "c99", "fullhunt", "racent"},
+		"Search Engines":           {"bing", "duckduckgo", "google", "yahoo", "baidu", "yandex", "ask", "gitee", "so", "sogou", "wzsearch"},
+		"API (requires keys)":      {"securitytrails", "virustotal", "shodan", "passivetotal", "chaos", "bevigil", "zoomeye", "fofa", "hunter", "intelx", "leakix", "netlas", "binaryedge", "threatbook", "quake", "c99", "fullhunt", "racent", "chinaz_api", "circl", "cloudflare", "dnsdb", "github", "ipv4info", "passivedns", "spyse", "windvane"},
 	}
 	colors := []string{"\033[36m", "\033[33m", "\033[35m", "\033[32m", "\033[31m"}
 	i := 0
@@ -299,6 +299,6 @@ func customHelp(cmd *cobra.Command, args []string) {
 
 	fmt.Println("\033[1mSYSTEM:\033[0m")
 	fmt.Println("  -h, --help                   Show this help menu")
-	fmt.Println("      --list-sources           List all 49 available sources and exit")
+	fmt.Println("      --list-sources           List all 68 available sources and exit")
 	fmt.Println()
 }

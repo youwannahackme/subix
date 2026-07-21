@@ -67,6 +67,12 @@ func AllSources() []Source {
 		&services.ThreatMiner{},
 		&services.MySSL{},
 		&services.DNSGrep{},
+		&services.CeBaidu{},
+		&services.Chinaz{},
+		&services.IP138{},
+		&services.NetCraft{},
+		&services.QianXun{},
+		&services.SiteDossier{},
 		// Web Archives
 		&webarchive.Wayback{},
 		&webarchive.CommonCrawl{},
@@ -78,6 +84,10 @@ func AllSources() []Source {
 		&searchengine.Baidu{},
 		&searchengine.Yandex{},
 		&searchengine.Ask{},
+		&searchengine.Gitee{},
+		&searchengine.So{},
+		&searchengine.Sogou{},
+		&searchengine.WzSearch{},
 		// API sources
 		&api.SecurityTrails{},
 		&api.VirusTotal{},
@@ -97,5 +107,15 @@ func AllSources() []Source {
 		&api.C99{},
 		&api.FullHunt{},
 		&api.Racent{},
+		&api.ChinazAPI{},
+		&api.Circl{},
+		&api.Cloudflare{},
+		&api.DNSDB{},
+		&api.GitHub{},
+		&api.IPv4Info{},
+		&api.PassiveDNS{},
+		&api.Spyse{},
+		&api.Windvane{},
 	}
 }
+
