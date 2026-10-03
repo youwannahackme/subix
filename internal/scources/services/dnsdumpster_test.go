@@ -13,6 +13,9 @@ import (
 )
 
 func TestDNSDumpster(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping live network test in short mode")
+	}
 	domain := "riphahfsd.edu.pk"
 	cfg := &types.Config{
 		Timeout: 15 * time.Second,

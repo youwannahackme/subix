@@ -49,14 +49,14 @@ func NewRunner(cfg *types.Config, domains []string) (*Runner, error) {
 		Client: client,
 	}
 
-	var wildcardDetector *resolution.WildcardDetector
-	if cfg.WildcardFilter {
-		wildcardDetector = resolution.NewWildcardDetector(client, cfg.Timeout)
-	}
-
 	var resolver *resolution.Resolver
 	if cfg.ResolveDNS || cfg.OnlyResolved || cfg.WildcardFilter {
 		resolver = resolution.NewResolver(cfg.Threads)
+	}
+
+	var wildcardDetector *resolution.WildcardDetector
+	if cfg.WildcardFilter {
+		wildcardDetector = resolution.NewWildcardDetector(resolver)
 	}
 
 	writer, err := output.NewWriter(cfg)
@@ -239,7 +239,27 @@ func (r *Runner) enumerateDomain(domain string, depth int) {
 			default:
 			}
 
-			subdomains, err := s.Run(domain, r.session)
+			var sourceLimiter *utils.RateLimiter
+			if r.config.RateLimit > 0 {
+				sourceLimiter = utils.NewRateLimiter(r.config.RateLimit)
+			}
+			sourceClient := sources.NewHTTPClientWithLimiter(r.config.Timeout, sourceLimiter)
+			sourceSession := &types.Session{
+				Config:      r.config,
+				Client:      sourceClient,
+				Context:     r.ctx,
+				RateLimiter: sourceLimiter,
+				SourceName:  s.Name(),
+				Stats:       r.stats,
+			}
+
+			if sourceLimiter != nil {
+				if err := sourceLimiter.WaitContext(r.ctx); err != nil {
+					return
+				}
+			}
+
+			subdomains, err := s.Run(domain, sourceSession)
 
 			if err != nil {
 				errStr := err.Error()
@@ -276,11 +296,12 @@ func (r *Runner) enumerateDomain(domain string, depth int) {
 					continue
 				}
 
-				// Deduplication
-				if r.config.RemoveDuplicate {
-					if _, loaded := r.seen.LoadOrStore(sub, true); loaded {
-						continue
-					}
+				// Deduplication & Seen Tracking
+				// Always populate r.seen regardless of RemoveDuplicate so that
+				// recursive enumeration and permutation engines always have all found subdomains
+				_, alreadySeen := r.seen.LoadOrStore(sub, true)
+				if r.config.RemoveDuplicate && alreadySeen {
+					continue
 				}
 
 				atomic.AddInt64(&r.stats.TotalFound, 1)
@@ -290,14 +311,18 @@ func (r *Runner) enumerateDomain(domain string, depth int) {
 					Source: s.Name(),
 				}
 
-				// DNS resolution
+				// DNS resolution (reads from cache populated by wildcard check or performs and caches resolution)
 				if r.resolver != nil {
-					ips := r.resolver.Resolve(sub)
-					result.IPs = ips
-					if len(ips) > 0 {
+					dnsDetails := r.resolver.ResolveDetails(sub)
+					result.IPs = dnsDetails.IPs
+					result.A = dnsDetails.A
+					result.AAAA = dnsDetails.AAAA
+					result.CNAME = dnsDetails.CNAME
+
+					if len(dnsDetails.IPs) > 0 {
 						atomic.AddInt64(&r.stats.Resolved, 1)
 					}
-					if r.config.OnlyResolved && len(ips) == 0 {
+					if r.config.OnlyResolved && len(dnsDetails.IPs) == 0 {
 						continue
 					}
 				}
@@ -404,8 +429,8 @@ func (r *Runner) runPermutation(domain string) {
 				return
 			}
 
-			ips := r.resolver.Resolve(p)
-			if len(ips) > 0 {
+			dnsDetails := r.resolver.ResolveDetails(p)
+			if len(dnsDetails.IPs) > 0 {
 				atomic.AddInt64(&found, 1)
 				atomic.AddInt64(&r.stats.TotalFound, 1)
 				atomic.AddInt64(&r.stats.Resolved, 1)
@@ -413,7 +438,10 @@ func (r *Runner) runPermutation(domain string) {
 				r.results <- &types.SubdomainResult{
 					Host:   p,
 					Source: "permutation",
-					IPs:    ips,
+					IPs:    dnsDetails.IPs,
+					A:      dnsDetails.A,
+					AAAA:   dnsDetails.AAAA,
+					CNAME:  dnsDetails.CNAME,
 				}
 			}
 		}(perm)
@@ -461,11 +489,28 @@ func (r *Runner) printStats() {
 	fmt.Fprintf(os.Stderr, "  Wildcards filtered:    %d\n", r.stats.WildcardFilter)
 	fmt.Fprintf(os.Stderr, "  Duration:              %s\n", r.stats.Duration.Round(time.Millisecond))
 
-	if len(r.stats.SourceCount) > 0 {
+	if len(r.stats.SourceCount) > 0 || len(r.stats.RateLimited) > 0 || len(r.stats.Blocked) > 0 {
 		fmt.Fprintf(os.Stderr, "\n  \033[36mPer-Source Breakdown:\033[0m\n")
-		for name, count := range r.stats.SourceCount {
-			bar := strings.Repeat("█", min(count/5, 30))
-			fmt.Fprintf(os.Stderr, "    %-18s %4d  %s\n", name, count, utils.ColorGreen(bar))
+		for _, src := range r.sources {
+			name := src.Name()
+			count := r.stats.SourceCount[name]
+			rateLimits := r.stats.RateLimited[name]
+			blocked := r.stats.Blocked[name]
+
+			extra := ""
+			if rateLimits > 0 {
+				extra = fmt.Sprintf(" \033[33m[Rate-limited: %d]\033[0m", rateLimits)
+			}
+			if blocked > 0 {
+				extra += fmt.Sprintf(" \033[31m[Blocked/Auth: %d]\033[0m", blocked)
+			}
+
+			if count > 0 {
+				bar := strings.Repeat("█", min(count/5, 30))
+				fmt.Fprintf(os.Stderr, "    %-18s %4d  %s%s\n", name, count, utils.ColorGreen(bar), extra)
+			} else if extra != "" {
+				fmt.Fprintf(os.Stderr, "    %-18s    0  %s\n", name, extra)
+			}
 		}
 	}
 

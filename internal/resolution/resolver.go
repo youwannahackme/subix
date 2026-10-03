@@ -3,14 +3,30 @@ package resolution
 import (
 	"context"
 	"net"
+	"strings"
 	"sync"
 	"time"
 )
 
-// Resolver handles concurrent DNS resolution using custom upstream resolvers
+// DNSLookup defines the interface for DNS resolution, satisfied by net.Resolver or mocks
+type DNSLookup interface {
+	LookupHost(ctx context.Context, host string) ([]string, error)
+	LookupCNAME(ctx context.Context, host string) (string, error)
+}
+
+// DNSResult contains structured DNS records for a host
+type DNSResult struct {
+	IPs   []string
+	A     []string
+	AAAA  []string
+	CNAME []string
+}
+
+// Resolver handles concurrent DNS resolution using custom upstream resolvers with short-lived in-memory caching
 type Resolver struct {
 	threads  int
-	resolver *net.Resolver
+	resolver DNSLookup
+	cache    sync.Map // host string -> *DNSResult
 }
 
 // NewResolver creates a new DNS resolver with custom DNS servers (Cloudflare, Google, Quad9)
@@ -41,40 +57,91 @@ func NewResolver(threads int) *Resolver {
 		},
 	}
 
+	return NewResolverWithLookup(threads, customResolver)
+}
+
+// NewResolverWithLookup creates a Resolver with a custom or mocked DNSLookup implementation
+func NewResolverWithLookup(threads int, lookup DNSLookup) *Resolver {
+	if threads <= 0 {
+		threads = 10
+	}
 	return &Resolver{
 		threads:  threads,
-		resolver: customResolver,
+		resolver: lookup,
 	}
 }
 
-// Resolve performs DNS lookup for a hostname and returns IPs
+// Resolve performs DNS lookup for a hostname and returns filtered IPs (utilizing cache to prevent duplicate lookups)
 func (r *Resolver) Resolve(host string) []string {
+	details := r.ResolveDetails(host)
+	if details == nil {
+		return nil
+	}
+	return details.IPs
+}
+
+// ResolveDetails performs DNS lookup and returns structured records (A, AAAA, CNAME, IPs) with caching
+func (r *Resolver) ResolveDetails(host string) *DNSResult {
+	host = strings.ToLower(strings.TrimSpace(host))
+	if host == "" {
+		return &DNSResult{}
+	}
+
+	// 1. Check in-memory cache first (prevents duplicate DNS resolution across wildcard filter and result pipeline)
+	if val, ok := r.cache.Load(host); ok {
+		if res, ok := val.(*DNSResult); ok {
+			return res
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
 
+	res := &DNSResult{}
+
+	// Perform IP lookup
 	ips, err := r.resolver.LookupHost(ctx, host)
-	if err != nil {
-		return nil
-	}
 
-	// Filter out IPv6 if we also have IPv4 (prefer IPv4)
-	var result []string
-	hasIPv4 := false
-	for _, ip := range ips {
-		if isIPv4(ip) {
-			hasIPv4 = true
-			break
+	// Perform CNAME lookup
+	cname, cnameErr := r.resolver.LookupCNAME(ctx, host)
+	if cnameErr == nil {
+		cnameClean := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(cname)), ".")
+		hostClean := strings.TrimSuffix(host, ".")
+		if cnameClean != "" && cnameClean != hostClean {
+			res.CNAME = []string{cnameClean}
 		}
 	}
 
-	for _, ip := range ips {
-		if hasIPv4 && !isIPv4(ip) {
-			continue
+	if err == nil && len(ips) > 0 {
+		var aRecords []string
+		var aaaaRecords []string
+		var resultIPs []string
+		hasIPv4 := false
+
+		for _, ip := range ips {
+			if isIPv4(ip) {
+				hasIPv4 = true
+				aRecords = append(aRecords, ip)
+			} else {
+				aaaaRecords = append(aaaaRecords, ip)
+			}
 		}
-		result = append(result, ip)
+
+		// Filter out IPv6 if IPv4 is available (prefer IPv4)
+		for _, ip := range ips {
+			if hasIPv4 && !isIPv4(ip) {
+				continue
+			}
+			resultIPs = append(resultIPs, ip)
+		}
+
+		res.IPs = resultIPs
+		res.A = aRecords
+		res.AAAA = aaaaRecords
 	}
 
-	return result
+	r.cache.Store(host, res)
+	return res
 }
 
 // ResolveBatch resolves a batch of hostnames concurrently

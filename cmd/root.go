@@ -71,8 +71,39 @@ Examples:
 			return
 		}
 
-		if domain == "" && domainList == "" {
-			fmt.Fprintf(os.Stderr, "Error: provide -d or -l flag\n")
+		// Gather domains
+		domains := []string{}
+		if domain != "" {
+			domains = append(domains, domain)
+		}
+		if domainList != "" {
+			fileDomains, err := readLines(domainList)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error reading domain list: %v\n", err)
+				os.Exit(1)
+			}
+			domains = append(domains, fileDomains...)
+		}
+
+		// Read from stdin if piped (e.g. cat domains.txt | subix -resolve)
+		if len(domains) == 0 {
+			stat, err := os.Stdin.Stat()
+			if err == nil && (stat.Mode()&os.ModeCharDevice) == 0 {
+				scanner := bufio.NewScanner(os.Stdin)
+				for scanner.Scan() {
+					line := strings.TrimSpace(scanner.Text())
+					if line != "" && !strings.HasPrefix(line, "#") {
+						domains = append(domains, line)
+					}
+				}
+				if scanErr := scanner.Err(); scanErr != nil {
+					fmt.Fprintf(os.Stderr, "Error reading from stdin: %v\n", scanErr)
+				}
+			}
+		}
+
+		if len(domains) == 0 {
+			fmt.Fprintf(os.Stderr, "Error: provide -d, -l flag or pipe domains via stdin\n")
 			_ = cmd.Help()
 			os.Exit(1)
 		}
@@ -120,20 +151,6 @@ Examples:
 		}
 		cfg.ProviderConfig = providerCfg
 
-		// Gather domains
-		domains := []string{}
-		if domain != "" {
-			domains = append(domains, domain)
-		}
-		if domainList != "" {
-			fileDomains, err := readLines(domainList)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error reading domain list: %v\n", err)
-				os.Exit(1)
-			}
-			domains = append(domains, fileDomains...)
-		}
-
 		// Create and run
 		r, err := runner.NewRunner(cfg, domains)
 		if err != nil {
@@ -175,10 +192,9 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&showSources, "list-sources", false, "List all available sources and exit")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Path to provider config file")
 	rootCmd.PersistentFlags().BoolVar(&onlyResolved, "only-resolved", false, "Only show resolved subdomains")
-	rootCmd.PersistentFlags().BoolVar(&removeDuplicate, "unique", false, "Remove duplicate subdomains (default: true)")
+	rootCmd.PersistentFlags().BoolVar(&removeDuplicate, "unique", true, "Remove duplicate subdomains (default: true)")
 	rootCmd.SetHelpTemplate(fmt.Sprintf("Subix %s\n", version))
 	rootCmd.Flags().BoolP("help", "h", false, "Help for Subix")
-	removeDuplicate = true // default on
 	rootCmd.SetHelpFunc(customHelp)
 }
 

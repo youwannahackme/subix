@@ -1,6 +1,7 @@
 package sources
 
 import (
+	"net"
 	"net/http"
 	"time"
 
@@ -26,16 +27,61 @@ type BaseSource struct {
 	// empty base — sources embed this for future shared helpers
 }
 
+// rateLimitedTransport wraps an http.RoundTripper with rate limiting
+type rateLimitedTransport struct {
+	base    http.RoundTripper
+	limiter types.RateLimiter
+}
+
+func (t *rateLimitedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if t.limiter != nil {
+		if err := t.limiter.WaitContext(req.Context()); err != nil {
+			return nil, err
+		}
+	}
+	return t.base.RoundTrip(req)
+}
+
 // NewHTTPClient creates a configured HTTP client from session config
 func NewHTTPClient(timeout time.Duration) *http.Client {
-	transport := &http.Transport{
-		MaxIdleConns:        100,
-		MaxIdleConnsPerHost: 20,
-		IdleConnTimeout:     90 * time.Second,
-		DisableKeepAlives:   false,
+	return NewHTTPClientWithLimiter(timeout, nil)
+}
+
+// NewHTTPClientWithLimiter creates a configured HTTP client with rate limiting and transport isolation
+func NewHTTPClientWithLimiter(timeout time.Duration, limiter types.RateLimiter) *http.Client {
+	dialTimeout := 10 * time.Second
+	if timeout > 0 && timeout < dialTimeout {
+		dialTimeout = timeout
 	}
+
+	dialer := &net.Dialer{
+		Timeout:   dialTimeout,
+		KeepAlive: 30 * time.Second,
+	}
+
+	baseTransport := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           dialer.DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   20,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   dialTimeout,
+		ResponseHeaderTimeout: timeout,
+		ExpectContinueTimeout: 1 * time.Second,
+		DisableKeepAlives:     false,
+	}
+
+	var rt http.RoundTripper = baseTransport
+	if limiter != nil {
+		rt = &rateLimitedTransport{
+			base:    baseTransport,
+			limiter: limiter,
+		}
+	}
+
 	return &http.Client{
-		Transport: transport,
+		Transport: rt,
 		Timeout:   timeout,
 	}
 }

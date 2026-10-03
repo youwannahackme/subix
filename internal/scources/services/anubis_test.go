@@ -10,6 +10,9 @@ import (
 )
 
 func TestAnubis(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping live network test in short mode")
+	}
 	domain := "github.com"
 	a := &Anubis{}
 	cfg := &types.Config{
