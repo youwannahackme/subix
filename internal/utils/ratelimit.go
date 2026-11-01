@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"context"
 	"sync"
 	"time"
 )
@@ -31,47 +30,22 @@ func NewRateLimiter(rate int) *RateLimiter {
 
 // Wait blocks until a token is available
 func (rl *RateLimiter) Wait() {
-	_ = rl.WaitContext(context.Background())
-}
-
-// WaitContext blocks until a token is available or context is cancelled
-func (rl *RateLimiter) WaitContext(ctx context.Context) error {
 	if rl == nil {
-		return nil
+		return
 	}
 
-	for {
-		if ctx != nil {
-			if err := ctx.Err(); err != nil {
-				return err
-			}
-		}
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
 
-		rl.mu.Lock()
-		rl.refill()
+	rl.refill()
 
-		if rl.tokens > 0 {
-			rl.tokens--
-			rl.mu.Unlock()
-			return nil
-		}
-
+	for rl.tokens <= 0 {
 		waitTime := time.Second / time.Duration(rl.rate)
-		if waitTime <= 0 {
-			waitTime = 10 * time.Millisecond
-		}
-		rl.mu.Unlock()
-
-		if ctx != nil {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(waitTime):
-			}
-		} else {
-			time.Sleep(waitTime)
-		}
+		time.Sleep(waitTime)
+		rl.refill()
 	}
+
+	rl.tokens--
 }
 
 // TryWait tries to get a token without blocking, returns true if successful
@@ -92,7 +66,7 @@ func (rl *RateLimiter) TryWait() bool {
 	return false
 }
 
-// refill adds tokens based on elapsed time (must be called while holding rl.mu)
+// refill adds tokens based on elapsed time
 func (rl *RateLimiter) refill() {
 	now := time.Now()
 	elapsed := now.Sub(rl.lastRefill)

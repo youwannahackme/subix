@@ -1,206 +1,140 @@
 package resolution
 
 import (
-	"crypto/rand"
 	"fmt"
-	"os"
-	"strings"
+	"math/rand"
+	"net"
 	"sync"
 	"time"
 )
 
 // WildcardDetector detects and filters wildcard DNS subdomains
 type WildcardDetector struct {
-	resolver  *Resolver
 	wildcards map[string]*wildcardInfo
 	mu        sync.RWMutex
 }
 
 type wildcardInfo struct {
 	detected bool
-	ips      map[string]bool
-	cnames   map[string]bool
+	ips      []string
 }
 
-// NewWildcardDetector creates a new wildcard detector using the shared Resolver
-func NewWildcardDetector(resolver *Resolver) *WildcardDetector {
-	if resolver == nil {
-		resolver = NewResolver(10)
-	}
+// NewWildcardDetector creates a new wildcard detector
+func NewWildcardDetector(client interface{}, timeout time.Duration) *WildcardDetector {
+	_ = client
+	_ = timeout
 	return &WildcardDetector{
-		resolver:  resolver,
 		wildcards: make(map[string]*wildcardInfo),
 	}
 }
 
-// Detect checks if a domain has wildcard DNS resolution with retry on transient errors
+// Detect checks if a domain has wildcard DNS resolution
 func (w *WildcardDetector) Detect(domain string) {
-	domain = strings.ToLower(strings.TrimSpace(domain))
 	probeCount := 3
-	wildcardIPs := make(map[string]bool)
-	wildcardCNAMEs := make(map[string]bool)
-	probesSucceeded := 0
-	inconclusive := false
+	ipSets := make([]map[string]bool, probeCount)
 
 	for i := 0; i < probeCount; i++ {
-		var details *DNSResult
-		var probeErr error
+		randomSub := generateRandomLabel(16)
+		probeHost := fmt.Sprintf("%s.%s", randomSub, domain)
 
-		// Retry probe up to 2 times (3 attempts total) with backoff on failure
-		for attempt := 0; attempt < 3; attempt++ {
-			randomSub := generateRandomLabel(16)
-			probeHost := fmt.Sprintf("%s.%s", randomSub, domain)
-
-			details = w.resolver.ResolveDetails(probeHost)
-			if details != nil && (len(details.IPs) > 0 || len(details.CNAME) > 0) {
-				probeErr = nil
-				break
-			}
-			probeErr = fmt.Errorf("no records returned")
-			if attempt < 2 {
-				time.Sleep(time.Duration(attempt+1) * 100 * time.Millisecond)
-			}
+		ips, err := net.LookupHost(probeHost)
+		if err != nil || len(ips) == 0 {
+			w.mu.Lock()
+			w.wildcards[domain] = &wildcardInfo{detected: false}
+			w.mu.Unlock()
+			return
 		}
 
-		if probeErr != nil {
-			// If probe 0 had no IPs, this domain likely does NOT have wildcard DNS.
-			// But if a previous probe DID succeed and this one failed after retries,
-			// or if probes conflict, it is inconclusive.
-			if probesSucceeded > 0 {
-				inconclusive = true
-			}
-			continue
-		}
-
-		probesSucceeded++
-		for _, ip := range details.IPs {
-			wildcardIPs[ip] = true
-		}
-		for _, cn := range details.CNAME {
-			wildcardCNAMEs[cn] = true
+		ipSets[i] = make(map[string]bool)
+		for _, ip := range ips {
+			ipSets[i][ip] = true
 		}
 	}
 
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	if inconclusive {
-		fmt.Fprintf(os.Stderr, "  [%s] \033[33m! Wildcard detection inconclusive for domain %s, filtering disabled\033[0m\n", domain, domain)
-		w.wildcards[domain] = &wildcardInfo{detected: false}
-		return
-	}
-
-	// If all probes succeeded and returned IPs/CNAMEs, it is confirmed wildcard
-	if probesSucceeded == probeCount && (len(wildcardIPs) > 0 || len(wildcardCNAMEs) > 0) {
+	if mapsEqual(ipSets[0], ipSets[1]) && mapsEqual(ipSets[1], ipSets[2]) {
+		var ipList []string
+		for ip := range ipSets[0] {
+			ipList = append(ipList, ip)
+		}
+		w.mu.Lock()
 		w.wildcards[domain] = &wildcardInfo{
 			detected: true,
-			ips:      wildcardIPs,
-			cnames:   wildcardCNAMEs,
+			ips:      ipList,
 		}
+		w.mu.Unlock()
 	} else {
+		w.mu.Lock()
 		w.wildcards[domain] = &wildcardInfo{detected: false}
+		w.mu.Unlock()
 	}
 }
 
-// IsWildcard checks if a specific subdomain matches the wildcard pattern using intersection matching
+// IsWildcard checks if a specific subdomain matches the wildcard pattern
 func (w *WildcardDetector) IsWildcard(subdomain string) bool {
-	subdomain = strings.ToLower(strings.TrimSpace(subdomain))
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 
-	rootDomain := w.extractRootDomain(subdomain)
+	rootDomain := extractRootDomain(subdomain, w.wildcards)
 	if rootDomain == "" {
 		return false
 	}
 
-	w.mu.RLock()
 	info, exists := w.wildcards[rootDomain]
-	w.mu.RUnlock()
-
 	if !exists || !info.detected {
 		return false
 	}
 
-	// Resolve the candidate subdomain using the shared resolver (populates / hits cache)
-	details := w.resolver.ResolveDetails(subdomain)
-	if details == nil {
+	ips, err := net.LookupHost(subdomain)
+	if err != nil {
 		return false
 	}
 
-	// 1. Check CNAME matching: if CNAME overlaps with wildcard CNAME
-	if len(info.cnames) > 0 && len(details.CNAME) > 0 {
-		for _, cn := range details.CNAME {
-			if info.cnames[cn] {
-				return true
-			}
-		}
+	if len(ips) != len(info.ips) {
+		return false
 	}
-
-	// 2. Check IP intersection: if candidate shares ANY IP with the wildcard IP set
-	if len(info.ips) > 0 && len(details.IPs) > 0 {
-		for _, ip := range details.IPs {
-			if info.ips[ip] {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-// extractRootDomain deterministically finds the longest matching registered root domain
-func (w *WildcardDetector) extractRootDomain(subdomain string) string {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-
-	var bestRoot string
-	for root := range w.wildcards {
-		if subdomain == root {
-			if len(root) > len(bestRoot) || (len(root) == len(bestRoot) && root > bestRoot) {
-				bestRoot = root
-			}
-			continue
-		}
-		suffix := "." + root
-		if strings.HasSuffix(subdomain, suffix) {
-			if len(root) > len(bestRoot) || (len(root) == len(bestRoot) && root > bestRoot) {
-				bestRoot = root
-			}
-		}
-	}
-	return bestRoot
-}
-
-// ExtractRootDomain exported for testing
-func (w *WildcardDetector) ExtractRootDomain(subdomain string) string {
-	return w.extractRootDomain(subdomain)
-}
-
-// RegisterWildcard registers a wildcard entry directly for testing
-func (w *WildcardDetector) RegisterWildcard(domain string, detected bool, ips []string, cnames []string) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
 
 	ipMap := make(map[string]bool)
-	for _, ip := range ips {
+	for _, ip := range info.ips {
 		ipMap[ip] = true
 	}
-	cnameMap := make(map[string]bool)
-	for _, cn := range cnames {
-		cnameMap[cn] = true
+
+	for _, ip := range ips {
+		if !ipMap[ip] {
+			return false
+		}
 	}
 
-	w.wildcards[domain] = &wildcardInfo{
-		detected: detected,
-		ips:      ipMap,
-		cnames:   cnameMap,
+	return true
+}
+
+func extractRootDomain(subdomain string, wildcards map[string]*wildcardInfo) string {
+	for root := range wildcards {
+		suffix := "." + root
+		if len(subdomain) > len(suffix) && subdomain[len(subdomain)-len(suffix):] == suffix {
+			return root
+		}
 	}
+	return ""
+}
+
+func mapsEqual(a, b map[string]bool) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k := range a {
+		if !b[k] {
+			return false
+		}
+	}
+	return true
 }
 
 func generateRandomLabel(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-	b := make([]byte, length)
-	_, _ = rand.Read(b)
-	for i := range b {
-		b[i] = charset[int(b[i])%len(charset)]
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	result := make([]byte, length)
+	for i := range result {
+		result[i] = charset[rng.Intn(len(charset))]
 	}
-	return string(b)
+	return string(result)
 }

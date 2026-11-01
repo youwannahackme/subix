@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ var (
 	domain             string
 	domainList         string
 	outputFile         string
+	proxy              string
 	jsonOutput         bool
 	csvOutput          bool
 	threads            int
@@ -71,41 +73,19 @@ Examples:
 			return
 		}
 
-		// Gather domains
-		domains := []string{}
-		if domain != "" {
-			domains = append(domains, domain)
-		}
-		if domainList != "" {
-			fileDomains, err := readLines(domainList)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error reading domain list: %v\n", err)
-				os.Exit(1)
-			}
-			domains = append(domains, fileDomains...)
+		if domain == "" && domainList == "" && len(args) > 0 {
+			domain = args[0]
 		}
 
-		// Read from stdin if piped (e.g. cat domains.txt | subix -resolve)
-		if len(domains) == 0 {
-			stat, err := os.Stdin.Stat()
-			if err == nil && (stat.Mode()&os.ModeCharDevice) == 0 {
-				scanner := bufio.NewScanner(os.Stdin)
-				for scanner.Scan() {
-					line := strings.TrimSpace(scanner.Text())
-					if line != "" && !strings.HasPrefix(line, "#") {
-						domains = append(domains, line)
-					}
-				}
-				if scanErr := scanner.Err(); scanErr != nil {
-					fmt.Fprintf(os.Stderr, "Error reading from stdin: %v\n", scanErr)
-				}
-			}
-		}
-
-		if len(domains) == 0 {
-			fmt.Fprintf(os.Stderr, "Error: provide -d, -l flag or pipe domains via stdin\n")
-			_ = cmd.Help()
+		if domain == "" && domainList == "" {
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				domainList = "-"
+			} else {
+				fmt.Fprintf(os.Stderr, "Error: provide -d or -l flag\n")
+				_ = cmd.Help()
 			os.Exit(1)
+			}
 		}
 
 		cfg := &types.Config{
@@ -151,6 +131,20 @@ Examples:
 		}
 		cfg.ProviderConfig = providerCfg
 
+		// Gather domains
+		domains := []string{}
+		if domain != "" {
+			domains = append(domains, domain)
+		}
+		if domainList != "" {
+			fileDomains, err := readLines(domainList)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error reading domain list: %v\n", err)
+				os.Exit(1)
+			}
+			domains = append(domains, fileDomains...)
+		}
+
 		// Create and run
 		r, err := runner.NewRunner(cfg, domains)
 		if err != nil {
@@ -171,7 +165,10 @@ func Execute() error {
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&domain, "domain", "d", "", "Target domain to enumerate")
+	rootCmd.PersistentFlags().StringVarP(&domain, "url", "u", "", "Target domain/URL to enumerate")
 	rootCmd.PersistentFlags().StringVarP(&domainList, "domain-list", "l", "", "File containing list of domains")
+	rootCmd.PersistentFlags().StringVar(&domainList, "list", "", "File containing list of domains")
+	rootCmd.PersistentFlags().StringVarP(&proxy, "proxy", "x", "", "Proxy URL (e.g. http://127.0.0.1:8080)")
 	rootCmd.PersistentFlags().StringVarP(&outputFile, "output", "o", "", "Write output to file")
 	rootCmd.PersistentFlags().BoolVarP(&jsonOutput, "json", "j", false, "Output in JSON format")
 	rootCmd.PersistentFlags().BoolVarP(&csvOutput, "csv", "c", false, "Output in CSV format")
@@ -192,9 +189,10 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&showSources, "list-sources", false, "List all available sources and exit")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Path to provider config file")
 	rootCmd.PersistentFlags().BoolVar(&onlyResolved, "only-resolved", false, "Only show resolved subdomains")
-	rootCmd.PersistentFlags().BoolVar(&removeDuplicate, "unique", true, "Remove duplicate subdomains (default: true)")
+	rootCmd.PersistentFlags().BoolVar(&removeDuplicate, "unique", false, "Remove duplicate subdomains (default: true)")
 	rootCmd.SetHelpTemplate(fmt.Sprintf("Subix %s\n", version))
 	rootCmd.Flags().BoolP("help", "h", false, "Help for Subix")
+	removeDuplicate = true // default on
 	rootCmd.SetHelpFunc(customHelp)
 }
 
@@ -209,14 +207,18 @@ func getOutputFormat() string {
 }
 
 func readLines(path string) ([]string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
+	var r io.Reader = os.Stdin
+	if path != "-" {
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+		r = file
 	}
-	defer file.Close()
 
 	var result []string
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" && !strings.HasPrefix(line, "#") {
